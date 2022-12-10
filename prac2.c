@@ -153,7 +153,13 @@ double RungeKutta(Point** head, double x0, double p0, double alpha)
             }
             else 
             {
-                break;
+                if (fabs(xh - next_x) / 31 < EPS / 64)
+                {
+                    h = h * 2;
+                }
+                else{
+                    break;
+                }
             }
             /*printf("   %lf ||| %lf ||| %le ||| %le\n", xh, next_x, h, last->t);
             scanf("%d", &a);*/
