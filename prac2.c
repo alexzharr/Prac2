@@ -4,7 +4,8 @@
 #include <string.h>
 #include <float.h>
 
-#define EPS 1e-8
+#define EPS 1e-13
+#define EPS1 1e-10
 #define X0 1
 #define P1 0
 #ifndef M_PI
@@ -86,12 +87,12 @@ double find_p0(double x0, double alpha)
         p1 = RungeKutta(&head, X0, p0, alpha);
         clearList(&head);
         head = (Point*)malloc(sizeof(Point));
-        f_left = RungeKutta(&head, X0, p0 - EPS, alpha);
+        f_left = RungeKutta(&head, X0, p0 - EPS1, alpha);
         clearList(&head);
         head = (Point*)malloc(sizeof(Point));
-        f_right = RungeKutta(&head, X0, p0 + EPS, alpha);
+        f_right = RungeKutta(&head, X0, p0 + EPS1, alpha);
         clearList(&head);
-        df = (f_right - f_left) / (2 * EPS);
+        df = (f_right - f_left) / (2 * EPS1);
         printf("%le\n", p1);
     } while (fabs(p1) > EPS);
     printf("p(0) = %.11f\n", p0);
@@ -99,15 +100,10 @@ double find_p0(double x0, double alpha)
 }
 double RungeKutta(Point** head, double x0, double p0, double alpha)
 {
-    int a;
-    double h, loc_err, xh;
+    double h = 1;
     double next_t, next_x, next_p;
-    double k1[2];
-    double k2[2];
-    double k3[2];
-    double k4[2];
-    double k5[2];
-    double k6[2];
+    double next_t2, next_x2, next_p2;
+    double k1[2], k2[2], k3[2], k4[2], k5[2], k6[2];
     Point* last;
 
     Point *pt = (Point*)malloc(sizeof(Point));
@@ -115,22 +111,15 @@ double RungeKutta(Point** head, double x0, double p0, double alpha)
     pt->x = x0;
     pt->p = p0;
     pt->next = NULL;
-
     (*head) = pt;
     last = pt;
 
-    h = 0.5;
     while (1 - last->t > EPS)
     {
         if (h > 1 - last->t)
-        {
             h = 1 - last->t;
-        }
-        h = h * 2;
-        next_x = DBL_MAX;
         do
         {
-            xh = next_x;
             k1[0] = h * f1(last->x, last->p, alpha);
             k1[1] = h * f2(last->x, last->p, alpha);
             k2[0] = h * f1(last->x + (1. / 2) * k1[0], last->p + (1. / 2) * k1[1], alpha);
@@ -143,28 +132,52 @@ double RungeKutta(Point** head, double x0, double p0, double alpha)
             k5[1] = h * f2(last->x + (1. / 27) * (7 * k1[0] + 10 * k2[0] + k4[0]), last->p + (1. / 27) * (7 * k1[1] + 10 * k2[1] + k4[1]), alpha);
             k6[0] = h * f1(last->x + (1. / 625) * (28 * k1[0] - 125 * k2[0] + 546 * k3[0] + 54 *k4[0] - 378 * k5[0]), last->p + (1. / 625) * (28 * k1[1] - 125 * k2[1] + 546 * k3[1] + 54 * k4[1] - 378 * k5[1]), alpha);
             k6[1] = h * f2(last->x + (1. / 625) * (28 * k1[0] - 125 * k2[0] + 546 * k3[0] + 54 *k4[0] - 378 * k5[0]), last->p + (1. / 625) * (28 * k1[1] - 125 * k2[1] + 546 * k3[1] + 54 * k4[1] - 378 * k5[1]), alpha);
-            //printf("%le ^^^^ %le\n", last->t, h);
             next_t = last->t + h;
             next_x = last->x + k1[0] / 24 + 5 * k4[0] / 48 + 27 * k5[0] / 56 + 125 * k6[0] / 336;
             next_p = last->p + k1[1] / 24 + 5 * k4[1] / 48 + 27 * k5[1] / 56 + 125 * k6[1] / 336;
-            if (fabs(xh - next_x) / 31 > EPS)
-            {
+
+            k1[0] = (h / 2) * f1(last->x, last->p, alpha);
+            k1[1] = (h / 2) * f2(last->x, last->p, alpha);
+            k2[0] = (h / 2) * f1(last->x + (1. / 2) * k1[0], last->p + (1. / 2) * k1[1], alpha);
+            k2[1] = (h / 2) * f2(last->x + (1. / 2) * k1[0], last->p + (1. / 2) * k1[1], alpha); 
+            k3[0] = (h / 2) * f1(last->x + (1. / 4) * (k1[0] + k2[0]), last->p + (1. / 4) * (k1[1] + k2[1]), alpha);
+            k3[1] = (h / 2) * f2(last->x + (1. / 4) * (k1[0] + k2[0]), last->p + (1. / 4) * (k1[1] + k2[1]), alpha);
+            k4[0] = (h / 2) * f1(last->x + (-k2[0] + 2 * k3[0]), last->p + (-k2[1] + 2 * k3[1]), alpha);
+            k4[1] = (h / 2) * f2(last->x + (-k2[0] + 2 * k3[0]), last->p + (-k2[1] + 2 * k3[1]), alpha);
+            k5[0] = (h / 2) * f1(last->x + (1. / 27) * (7 * k1[0] + 10 * k2[0] + k4[0]), last->p + (1. / 27) * (7 * k1[1] + 10 * k2[1] + k4[1]), alpha);
+            k5[1] = (h / 2) * f2(last->x + (1. / 27) * (7 * k1[0] + 10 * k2[0] + k4[0]), last->p + (1. / 27) * (7 * k1[1] + 10 * k2[1] + k4[1]), alpha);
+            k6[0] = (h / 2) * f1(last->x + (1. / 625) * (28 * k1[0] - 125 * k2[0] + 546 * k3[0] + 54 *k4[0] - 378 * k5[0]), last->p + (1. / 625) * (28 * k1[1] - 125 * k2[1] + 546 * k3[1] + 54 * k4[1] - 378 * k5[1]), alpha);
+            k6[1] = (h / 2) * f2(last->x + (1. / 625) * (28 * k1[0] - 125 * k2[0] + 546 * k3[0] + 54 *k4[0] - 378 * k5[0]), last->p + (1. / 625) * (28 * k1[1] - 125 * k2[1] + 546 * k3[1] + 54 * k4[1] - 378 * k5[1]), alpha);
+            next_t2 = last->t + h / 2;
+            next_x2 = last->x + k1[0] / 24 + 5 * k4[0] / 48 + 27 * k5[0] / 56 + 125 * k6[0] / 336;
+            next_p2 = last->p + k1[1] / 24 + 5 * k4[1] / 48 + 27 * k5[1] / 56 + 125 * k6[1] / 336;
+
+            k1[0] = (h / 2) * f1(next_x2, next_p2, alpha);
+            k1[1] = (h / 2) * f2(next_x2, next_p2, alpha);
+            k2[0] = (h / 2) * f1(next_x2 + (1. / 2) * k1[0], next_p2 + (1. / 2) * k1[1], alpha);
+            k2[1] = (h / 2) * f2(next_x2 + (1. / 2) * k1[0], next_p2 + (1. / 2) * k1[1], alpha); 
+            k3[0] = (h / 2) * f1(next_x2 + (1. / 4) * (k1[0] + k2[0]), next_p2 + (1. / 4) * (k1[1] + k2[1]), alpha);
+            k3[1] = (h / 2) * f2(next_x2 + (1. / 4) * (k1[0] + k2[0]), next_p2 + (1. / 4) * (k1[1] + k2[1]), alpha);
+            k4[0] = (h / 2) * f1(next_x2 + (-k2[0] + 2 * k3[0]), next_p2 + (-k2[1] + 2 * k3[1]), alpha);
+            k4[1] = (h / 2) * f2(next_x2 + (-k2[0] + 2 * k3[0]), next_p2 + (-k2[1] + 2 * k3[1]), alpha);
+            k5[0] = (h / 2) * f1(next_x2 + (1. / 27) * (7 * k1[0] + 10 * k2[0] + k4[0]), next_p2 + (1. / 27) * (7 * k1[1] + 10 * k2[1] + k4[1]), alpha);
+            k5[1] = (h / 2) * f2(next_x2 + (1. / 27) * (7 * k1[0] + 10 * k2[0] + k4[0]), next_p2 + (1. / 27) * (7 * k1[1] + 10 * k2[1] + k4[1]), alpha);
+            k6[0] = (h / 2) * f1(next_x2 + (1. / 625) * (28 * k1[0] - 125 * k2[0] + 546 * k3[0] + 54 *k4[0] - 378 * k5[0]), next_p2 + (1. / 625) * (28 * k1[1] - 125 * k2[1] + 546 * k3[1] + 54 * k4[1] - 378 * k5[1]), alpha);
+            k6[1] = (h / 2) * f2(next_x2 + (1. / 625) * (28 * k1[0] - 125 * k2[0] + 546 * k3[0] + 54 *k4[0] - 378 * k5[0]), next_p2 + (1. / 625) * (28 * k1[1] - 125 * k2[1] + 546 * k3[1] + 54 * k4[1] - 378 * k5[1]), alpha);
+            next_t2 = next_t2 + h;
+            next_x2 = next_x2 + k1[0] / 24 + 5 * k4[0] / 48 + 27 * k5[0] / 56 + 125 * k6[0] / 336;
+            next_p2 = next_p2 + k1[1] / 24 + 5 * k4[1] / 48 + 27 * k5[1] / 56 + 125 * k6[1] / 336;
+
+            if (fabs(next_x2 - next_x) / 31 > EPS)
                 h = h / 2;
-            }
             else 
             {
-                if (fabs(xh - next_x) / 31 < EPS / 64)
-                {
+                if (fabs(next_x2 - next_x) / 31 < EPS / 64)
                     h = h * 2;
-                }
-                else{
+                else
                     break;
-                }
             }
-            /*printf("   %lf ||| %lf ||| %le ||| %le\n", xh, next_x, h, last->t);
-            scanf("%d", &a);*/
         } while (1);
-
         pushBack(&last, next_t, next_x, next_p);
     }
     printf("x(1) =  %.11f\n", last->x);
